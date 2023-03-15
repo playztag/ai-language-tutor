@@ -80,9 +80,9 @@ const ChatWindow = () => {
     }
   };
 
-  const playAudio = () => {
-    if (audioURL) {
-      const audio = new Audio(audioURL);
+  const playAudio = (source) => {
+    if (source) {
+      const audio = new Audio(source);
       audio.play();
     }
   };
@@ -100,7 +100,10 @@ const ChatWindow = () => {
           >
             {message.text}
             {message.sender === 'user' && (
-              <button className="btn btn-primary" onClick={playAudio}>
+              <button
+                className="btn btn-primary"
+                onClick={() => playAudio(audioURL)}
+              >
                 Play
               </button>
             )}
@@ -113,21 +116,23 @@ const ChatWindow = () => {
           className="form-control"
           placeholder="Type your message here..."
           onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              handleSendMessage(e.target.value);
-              e.target.value = '';
-            }
-          }}
-        />
-        <button
-          className={`btn ${isRecording ? 'btn-danger' : 'btn-primary'}`}
-          onClick={isRecording ? stopRecording : startRecording}
-        >
-          {isRecording ? 'Stop Recording' : 'Start Recording'}
-        </button>
+            if (e.key ===
+              'Enter') {
+                handleSendMessage(e.target.value);
+                e.target.value = '';
+              }
+            }}
+          />
+          <button
+            className={`btn ${isRecording ? 'btn-danger' : 'btn-primary'}`}
+            onClick={isRecording ? stopRecording : startRecording}
+          >
+            {isRecording ? 'Stop Recording' : 'Start Recording'}
+          </button>
+        </div>
       </div>
-    </div>
-  );
-};
-
-export default ChatWindow;
+    );
+  };
+  
+  export default ChatWindow;
+  
