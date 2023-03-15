@@ -9,21 +9,37 @@ const ChatWindow = () => {
   const [messages, setMessages] = useState([]);
   const [isRecording, setIsRecording] = useState(false);
   const [audioURL, setAudioURL] = useState(null);
+  const [language, setLanguage] = useState({ code: 'es-MX', voice: 'Mia' });
   const audioRef = useRef(null);
 
+  const languages = [
+    { name: 'English (US)', code: 'en-US', voice: 'Joanna' },
+    { name: 'Spanish (Spain)', code: 'es-ES', voice: 'Conchita' },
+    { name: 'Spanish (Mexico)', code: 'es-MX', voice: 'Mia' }, // Added Spanish for Mexico
+    { name: 'Chinese (Mandarin)', code: 'zh-CN', voice: 'Zhiyu' },
+    { name: 'French', code: 'fr-FR', voice: 'Celine' },
+    { name: 'German', code: 'de-DE', voice: 'Hans' },
+    { name: 'Italian', code: 'it-IT', voice: 'Carla' },
+    { name: 'Portuguese (Brazil)', code: 'pt-BR', voice: 'Vitoria' },
+    { name: 'Russian', code: 'ru-RU', voice: 'Tatyana' },
+    { name: 'Japanese', code: 'ja-JP', voice: 'Mizuki' },
+    { name: 'Korean', code: 'ko-KR', voice: 'Seoyeon' },
+  ];
+
   async function chatgpt_api(input_text) {
+    console.log("Language used:", language);
+  
     const messages = [
       {
         role: "system",
-        content:
-          "You are a helpful Spanish tutor that helps me with my grammar",
+        content: `You are a highly skilled and engaging ${language.name} tutor that helps me with my grammar and pronunciation while maintaining the context of our conversation. You will reply to me in ${language.name} and also provide an English translation.`,
       },
     ];
-
+  
     if (input_text) {
       messages.push({
         role: "user",
-        content: `You are a patient Spanish tutor (mexico), I will speak to you in English and Spanish, please reply back with the correct way it should be spoken in Spanish and give me a follow up response in both Spanish and its English translation so we can continue the conversation: "${input_text}"`,
+        content: input_text,
       });
 
       try {
@@ -60,12 +76,12 @@ const ChatWindow = () => {
     region: process.env.REACT_APP_AWS_REGION,
   });
 
-  const synthesizeSpeech = async (text) => {
+  const synthesizeSpeech = async (text, voice) => {
     const polly = new AWS.Polly();
     const params = {
       OutputFormat: 'mp3',
       Text: `<speak><prosody rate="0.8">${text}</prosody></speak>`, // Adjust the rate value to your desired speed
-      VoiceId: 'Mia', // Choose a Spanish-speaking voice
+      VoiceId: voice, // Use the selected Polly voice
       TextType: 'ssml' // Add this line to enable SSML
     };
 
@@ -86,12 +102,19 @@ const ChatWindow = () => {
     setMessages([...messages, { text: message, sender: 'user', audioUrl }]);
     // Get bot response from ChatGPT API
     const reply = await chatgpt_api(message);
-    const replyAudioUrl = await synthesizeSpeech(reply);
+    const replyAudioUrl = await synthesizeSpeech(reply, language.voice);
     setMessages((prevMessages) => [
       ...prevMessages,
       { text: reply, sender: 'bot', audioUrl: replyAudioUrl },
     ]);
   };
+
+  const handleLanguageChange = (event) => {
+    const selectedLanguage = languages.find(lang => lang.code === event.target.value);
+    setLanguage({ code: selectedLanguage.code, voice: selectedLanguage.voice });
+    console.log("Selected language:", selectedLanguage); // Add this line
+  };
+  
 
   const startRecording = async () => {
     try {
@@ -160,30 +183,48 @@ const ChatWindow = () => {
   const playAudio = async (audioUrl) => {
     if (audioUrl) {
       try {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const audioBuffer = await fetch(audioUrl).then(response => response.arrayBuffer());
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioContext = new AudioContext();
+  
+        const audioBuffer = await fetch(audioUrl).then((response) => response.arrayBuffer());
         const decodedBuffer = await audioContext.decodeAudioData(audioBuffer);
-
+  
         const audioSource = audioContext.createBufferSource();
         audioSource.buffer = decodedBuffer;
         audioSource.connect(audioContext.destination);
-
+  
         audioSource.start(0);
-
-        audioSource.addEventListener('ended', () => {
-          console.log('Audio playback ended');
+  
+        audioSource.addEventListener("ended", () => {
+          console.log("Audio playback ended");
         });
-
-        console.log('Audio playback started');
+  
+        console.log("Audio playback started");
       } catch (error) {
-        console.error('Audio playback error:', error);
+        console.error("Audio playback error:", error);
       }
     }
   };
+  
 
   return (
+
     <div className="chat-window">
       <h2>AI Language Tutor</h2>
+      <div className="language-selector">
+        <label htmlFor="language">Select a language:</label>
+        <select
+          id="language"
+          value={language.code}
+          onChange={handleLanguageChange}
+        >
+          {languages.map((lang) => (
+            <option key={lang.code} value={lang.code}>
+              {lang.name}
+            </option>
+          ))}
+        </select>
+      </div>
       <div className="messages-container">
         <audio ref={audioRef}></audio>
         {messages.map((message, index) => (
