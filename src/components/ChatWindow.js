@@ -11,6 +11,8 @@ const ChatWindow = () => {
   const [audioURL, setAudioURL] = useState(null);
   const [language, setLanguage] = useState({ code: 'es-MX', voice: 'Mia' });
   const audioRef = useRef(null);
+  const [conversationHistory, setConversationHistory] = useState([]);
+
 
   const languages = [
     { name: 'English (US)', code: 'en-US', voice: 'Joanna' },
@@ -29,19 +31,17 @@ const ChatWindow = () => {
   async function chatgpt_api(input_text) {
     console.log("Language used:", language);
   
-    const messages = [
-      {
-        role: "system",
-        content: `You are a highly skilled and engaging ${language.name} tutor that helps me with my grammar and pronunciation while maintaining the context of our conversation. You will reply to me in ${language.name} and also provide an English translation.`,
-      },
-    ];
-  
     if (input_text) {
-      messages.push({
+      const newMessage = {
         role: "user",
         content: input_text,
-      });
-
+      };
+  
+      const updatedConversationHistory = [
+        ...conversationHistory,
+        newMessage,
+      ].slice(-10); // Keep the last 10 messages (including the new message)
+  
       try {
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
@@ -51,24 +51,83 @@ const ChatWindow = () => {
           },
           body: JSON.stringify({
             model: "gpt-3.5-turbo",
-            messages: messages,
+            messages: [
+              {
+                role: "system",
+                content: `You are a highly skilled and engaging ${language.name} tutor that helps me with my grammar and pronunciation while maintaining the context of our conversation. You will reply to me in ${language.name} and also provide an English translation.`,
+              },
+              ...updatedConversationHistory,
+            ],
           }),
         });
-
+  
         if (!response.ok) {
           const errorData = await response.json();
           console.error('OpenAI API Error:', errorData);
           throw new Error('Failed to get a response from the API');
         }
-
+  
         const data = await response.json();
         const reply = data.choices[0].message.content;
+  
+        // Update the conversation history with the bot's reply
+        setConversationHistory([
+          ...updatedConversationHistory,
+          { role: "bot", content: reply },
+        ]);
+  
         return reply;
       } catch (error) {
         console.error('Error calling OpenAI API:', error);
       }
     }
   }
+  
+  
+
+  // async function chatgpt_api(input_text) {
+  //   console.log("Language used:", language);
+  
+  //   const messages = [
+  //     {
+  //       role: "system",
+  //       content: `You are a highly skilled and engaging ${language.name} tutor that helps me with my grammar and pronunciation while maintaining the context of our conversation. You will reply to me in ${language.name} and also provide an English translation.`,
+  //     },
+  //   ];
+  
+  //   if (input_text) {
+  //     messages.push({
+  //       role: "user",
+  //       content: input_text,
+  //     });
+
+  //     try {
+  //       const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  //         method: 'POST',
+  //         headers: {
+  //           'Content-Type': 'application/json',
+  //           'Authorization': `Bearer ${process.env.REACT_APP_OPENAI_API_KEY}`,
+  //         },
+  //         body: JSON.stringify({
+  //           model: "gpt-3.5-turbo",
+  //           messages: messages,
+  //         }),
+  //       });
+
+  //       if (!response.ok) {
+  //         const errorData = await response.json();
+  //         console.error('OpenAI API Error:', errorData);
+  //         throw new Error('Failed to get a response from the API');
+  //       }
+
+  //       const data = await response.json();
+  //       const reply = data.choices[0].message.content;
+  //       return reply;
+  //     } catch (error) {
+  //       console.error('Error calling OpenAI API:', error);
+  //     }
+  //   }
+  // }
 
   AWS.config.update({
     accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY,
@@ -98,8 +157,11 @@ const ChatWindow = () => {
     });
   };
 
+
   const handleSendMessage = async (message, audioUrl) => {
     setMessages([...messages, { text: message, sender: 'user', audioUrl }]);
+    setConversationHistory(prevHistory => [...prevHistory, { role: 'user', content: message }]);
+    
     // Get bot response from ChatGPT API
     const reply = await chatgpt_api(message);
     const replyAudioUrl = await synthesizeSpeech(reply, language.voice);
@@ -107,7 +169,12 @@ const ChatWindow = () => {
       ...prevMessages,
       { text: reply, sender: 'bot', audioUrl: replyAudioUrl },
     ]);
+    setConversationHistory(prevHistory => [...prevHistory, { role: 'ai', content: reply }]);
   };
+  
+
+
+
 
   const handleLanguageChange = (event) => {
     const selectedLanguage = languages.find(lang => lang.code === event.target.value);
