@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import MicRecorder from 'mic-recorder-to-mp3';
+import openai from 'openai';
 import './ChatWindow.css';
 
 const Mp3Recorder = new MicRecorder({ bitRate: 128 });
@@ -7,8 +8,9 @@ const Mp3Recorder = new MicRecorder({ bitRate: 128 });
 const ChatWindow = () => {
   const [messages, setMessages] = useState([]);
   const [isRecording, setIsRecording] = useState(false);
+  const [audioURL, setAudioURL] = useState(null);
 
-  const handleSendMessage = (message) => {
+  const handleSendMessage = async (message) => {
     setMessages([...messages, { text: message, sender: 'user' }]);
     // Simulate bot response
     setMessages((prevMessages) => [
@@ -26,6 +28,35 @@ const ChatWindow = () => {
     }
   };
 
+  const transcribeAudio = async (audioBlob) => {
+    const formData = new FormData();
+    formData.append('file', audioBlob, 'audio.mp3');
+    formData.append('model', 'whisper-1');
+  
+    try {
+      const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.REACT_APP_OPENAI_API_KEY}`,
+        },
+        body: formData,
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Whisper API Error:', errorData);
+        throw new Error('Failed to transcribe audio');
+      }
+  
+      const data = await response.json();
+      return data.text;
+    } catch (error) {
+      console.error('Transcription error:', error);
+      throw error;
+    }
+  };
+  
+
   const stopRecording = async () => {
     try {
       const [buffer, blob] = await Mp3Recorder.stop().getMp3();
@@ -37,13 +68,22 @@ const ChatWindow = () => {
         lastModified: Date.now(),
       });
 
-      // Save the file to local drive (only works on localhost or local development environment)
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(file);
-      a.download = fileName;
-      a.click();
+      const audioUrl = URL.createObjectURL(file);
+      setAudioURL(audioUrl);
+
+      const transcription = await transcribeAudio(blob);
+      if (transcription) {
+        handleSendMessage(transcription);
+      }
     } catch (error) {
       console.error('Failed to stop recording:', error);
+    }
+  };
+
+  const playAudio = () => {
+    if (audioURL) {
+      const audio = new Audio(audioURL);
+      audio.play();
     }
   };
 
@@ -59,6 +99,11 @@ const ChatWindow = () => {
             }`}
           >
             {message.text}
+            {message.sender === 'user' && (
+              <button className="btn btn-primary" onClick={playAudio}>
+                Play
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -75,7 +120,7 @@ const ChatWindow = () => {
           }}
         />
         <button
-          className={`btn btn-${isRecording ? 'danger' : 'primary'}`}
+          className={`btn ${isRecording ? 'btn-danger' : 'btn-primary'}`}
           onClick={isRecording ? stopRecording : startRecording}
         >
           {isRecording ? 'Stop Recording' : 'Start Recording'}
