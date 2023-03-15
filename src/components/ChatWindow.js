@@ -13,14 +13,62 @@ const ChatWindow = () => {
   const audioRef = useRef(null);
 
 
+  async function chatgpt_api(input_text) {
+    const messages = [
+      {
+        role: "system",
+        content:
+          "You are a helpful Spanish tutor that helps me with my grammar",
+      },
+    ];
+  
+    if (input_text) {
+      messages.push({
+        role: "user",
+        content: `You are a patient Spanish tutor (mexico), I will speak to you in English and Spanish, please reply back with the correct way it should be spoken in Spanish and give me a follow up response in both Spanish and its English translation so we can continue the conversation: "${input_text}"`,
+      });
+  
+      try {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.REACT_APP_OPENAI_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-3.5-turbo",
+            messages: messages,
+          }),
+        });
+  
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('OpenAI API Error:', errorData);
+          throw new Error('Failed to get a response from the API');
+        }
+  
+        const data = await response.json();
+        const reply = data.choices[0].message.content;
+        return reply;
+      } catch (error) {
+        console.error('Error calling OpenAI API:', error);
+      }
+    }
+  }
+  
+  
+  
+
   const handleSendMessage = async (message, audioUrl) => {
     setMessages([...messages, { text: message, sender: 'user', audioUrl }]);
-    // Simulate bot response
+    // Get bot response from ChatGPT API
+    const reply = await chatgpt_api(message);
     setMessages((prevMessages) => [
       ...prevMessages,
-      { text: 'Bot response', sender: 'bot' },
+      { text: reply, sender: 'bot' },
     ]);
   };
+  
 
   const startRecording = async () => {
     try {
