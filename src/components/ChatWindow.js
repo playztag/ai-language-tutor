@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import MicRecorder from 'mic-recorder-to-mp3';
 import openai from 'openai';
 import './ChatWindow.css';
+
 
 const Mp3Recorder = new MicRecorder({ bitRate: 128 });
 
@@ -9,9 +10,11 @@ const ChatWindow = () => {
   const [messages, setMessages] = useState([]);
   const [isRecording, setIsRecording] = useState(false);
   const [audioURL, setAudioURL] = useState(null);
+  const audioRef = useRef(null);
 
-  const handleSendMessage = async (message) => {
-    setMessages([...messages, { text: message, sender: 'user' }]);
+
+  const handleSendMessage = async (message, audioUrl) => {
+    setMessages([...messages, { text: message, sender: 'user', audioUrl }]);
     // Simulate bot response
     setMessages((prevMessages) => [
       ...prevMessages,
@@ -71,26 +74,51 @@ const ChatWindow = () => {
       const audioUrl = URL.createObjectURL(file);
       setAudioURL(audioUrl);
 
+      // Add this line
+      playAudio();
+
       const transcription = await transcribeAudio(blob);
       if (transcription) {
-        handleSendMessage(transcription);
+        handleSendMessage(transcription, audioUrl);
       }
     } catch (error) {
       console.error('Failed to stop recording:', error);
     }
   };
 
-  const playAudio = (source) => {
-    if (source) {
-      const audio = new Audio(source);
-      audio.play();
+  const playAudio = async () => {
+    if (audioURL) {
+      try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const audioBuffer = await fetch(audioURL).then(response => response.arrayBuffer());
+        const decodedBuffer = await audioContext.decodeAudioData(audioBuffer);
+  
+        const audioSource = audioContext.createBufferSource();
+        audioSource.buffer = decodedBuffer;
+        audioSource.connect(audioContext.destination);
+  
+        audioSource.start(0);
+  
+        audioSource.addEventListener('ended', () => {
+          console.log('Audio playback ended');
+        });
+  
+        console.log('Audio playback started');
+      } catch (error) {
+        console.error('Audio playback error:', error);
+      }
     }
   };
+  
+  
+  
+  
 
   return (
     <div className="chat-window">
       <h2>AI Language Tutor</h2>
       <div className="messages-container">
+      <audio ref={audioRef}></audio>
         {messages.map((message, index) => (
           <div
             key={index}
@@ -100,13 +128,10 @@ const ChatWindow = () => {
           >
             {message.text}
             {message.sender === 'user' && (
-              <button
-                className="btn btn-primary"
-                onClick={() => playAudio(audioURL)}
-              >
-                Play
-              </button>
-            )}
+  <button className="btn btn-primary" onClick={() => playAudio(message.audioUrl)}>
+    Play
+  </button>
+)}
           </div>
         ))}
       </div>
