@@ -36,7 +36,7 @@ Some current limitations of the GPT Foreign Language Tutor include:
 -   Audio not working on all browsers (e.g., mobile devices)
 -   Crude interface with no option to pause audio playback
 
-We welcome contributions to improve the GPT Foreign Language Tutor. To get involved, please submit pull requests on GitHub or email [quan@ztag.com](mailto:quan@ztag.com).
+We welcome contributions to improve the GPT Foreign Language Tutor. To get involved, please submit pull requests on GitHub.
 
 ## Acknowledgments
 
